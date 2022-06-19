@@ -33,8 +33,8 @@ function plugin_freeze_action()
 		// Freeze
 		$postdata = get_source($page);
 		array_unshift($postdata, "#freeze\n");
-		if ($database && exist_db_record(DATA_DB, $page)) {
-			db_write(DATA_DB, $page, join('', $postdata), TRUE);
+		if ($database && exist_db_page(DATA_DB, $page)) {
+			db_page_write(DATA_DB, $page, join('', $postdata), TRUE);
 		} else {
 			file_write(DATA_DIR, $page, join('', $postdata), TRUE);
 		}

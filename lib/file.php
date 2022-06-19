@@ -37,7 +37,7 @@ function get_source($page = NULL, $lock = TRUE, $join = FALSE, $raw = FALSE)
 	// 	-- this is slower than "get_source($file, TRUE, TRUE)"
 	// Compat for foreach(get_source($file) as $line) {} not to warns
 
-	if ($database && exist_db_record(DATA_DB, $page)) {
+	if ($database && exist_db_page(DATA_DB, $page)) {
 		$r = db_read(DATA_DB, "content", "page_name", $page);
 		if ($r !== false) {
 			$result = $r['content'];
@@ -109,7 +109,7 @@ function get_source($page = NULL, $lock = TRUE, $join = FALSE, $raw = FALSE)
 function get_filetime($page)
 {
 	global $database;
-	if ($database && exist_db_record(DATA_DB, $page)) {
+	if ($database && exist_db_page(DATA_DB, $page)) {
 		return get_db_recordtime($page);
 	}
 	return is_page($page) ? filemtime(get_filename($page)) - LOCALZONE : 0;
@@ -123,7 +123,7 @@ function get_filetime($page)
 function get_page_date_atom($page)
 {
 	global $database;
-	if ($database && exist_db_record(DATA_DB, $page)) {
+	if ($database && exist_db_page(DATA_DB, $page)) {
 		return get_date_atom(db_recordmtime($page));
 	}
 	if (is_page($page)) {
@@ -165,7 +165,7 @@ function page_write($page, $postdata, $notimestamp = FALSE)
 	// Create and write diff
 	$diffdata    = do_diff($oldpostdata, $postdata);
 	if ($database) {
-		db_write(DIFF_DB, $page, $diffdata);
+		db_page_write(DIFF_DB, $page, $diffdata);
 	} else {
 		file_write(DIFF_DIR, $page, $diffdata);
 	}
@@ -175,7 +175,7 @@ function page_write($page, $postdata, $notimestamp = FALSE)
 
 	// Create wiki text
 	if ($database) {
-		db_write(DATA_DB, $page, $postdata, $notimestamp, $is_delete);
+		db_page_write(DATA_DB, $page, $postdata, $notimestamp, $is_delete);
 	} else {
 		file_write(DATA_DIR, $page, $postdata, $notimestamp, $is_delete);
 	}
@@ -508,6 +508,7 @@ function add_recent($page, $recentpage, $subject = '', $limit = 0)
 function lastmodified_add($update = '', $remove = '')
 {
 	global $maxshow, $whatsnew, $autolink;
+	global $database;
 
 	// AutoLink implimentation needs everything, for now
 	if ($autolink) {
@@ -567,33 +568,45 @@ function lastmodified_add($update = '', $remove = '')
 	// ----
 	// Update the page 'RecentChanges'
 	$recent_pages = array_splice($recent_pages, 0, $maxshow);
-	$file = get_filename($whatsnew);
 
-	// Open
-	pkwk_touch_file($file);
-	$fp = fopen($file, 'r+') or
-		die_message('Cannot open ' . htmlsc($whatsnew));
-	set_file_buffer($fp, 0);
-	flock($fp, LOCK_EX);
-
-	// Recreate
-	ftruncate($fp, 0);
-	rewind($fp);
 	$do_diff = exist_plugin('diff');
-	foreach ($recent_pages as $_page=>$time) {
-		$line = get_recentchanges_line($_page, $time, $do_diff);
-		fputs($fp, $line);
-	}
-	fputs($fp, '#norelated' . "\n"); // :)
+	if ($database) {
+		$source = '';
+		foreach ($recent_pages as $_page => $time) {
+			$line = get_recentchanges_line($_page, $time, $do_diff);
+			$source .= $line;
+		}
+		$source .= '#norelated' . "\n";
+		db_write(DATA_DB, 'content', $source, 'page_name', $whatsnew);
+	} else {
+		$file = get_filename($whatsnew);
 
-	flock($fp, LOCK_UN);
-	fclose($fp);
+		// Open
+		pkwk_touch_file($file);
+		$fp = fopen($file, 'r+') or
+			die_message('Cannot open ' . htmlsc($whatsnew));
+		set_file_buffer($fp, 0);
+		flock($fp, LOCK_EX);
+
+		// Recreate
+		ftruncate($fp, 0);
+		rewind($fp);
+		foreach ($recent_pages as $_page => $time) {
+			$line = get_recentchanges_line($_page, $time, $do_diff);
+			fputs($fp, $line);
+		}
+		fputs($fp, '#norelated' . "\n"); // :)
+
+		flock($fp, LOCK_UN);
+		fclose($fp);
+	}
 }
 
 // Re-create PKWK_MAXSHOW_CACHE (Heavy)
 function put_lastmodified()
 {
 	global $maxshow, $whatsnew, $autolink;
+	global $database;
 
 	if (PKWK_READONLY) return; // Do nothing
 
@@ -635,28 +648,38 @@ function put_lastmodified()
 	fclose($fp);
 
 	// Create RecentChanges
-	$file = get_filename($whatsnew);
-	pkwk_touch_file($file);
-	$fp = fopen($file, 'r+') or
-		die_message('Cannot open ' . htmlsc($whatsnew));
-	set_file_buffer($fp, 0);
-	flock($fp, LOCK_EX);
-	ftruncate($fp, 0);
-	rewind($fp);
 	$do_diff = exist_plugin('diff');
-	foreach (array_keys($recent_pages) as $page) {
-		$time = $recent_pages[$page];
-		$line = get_recentchanges_line($page, $time, $do_diff);
-		fputs($fp, $line);
-	}
-	fputs($fp, '#norelated' . "\n"); // :)
-	flock($fp, LOCK_UN);
-	fclose($fp);
+	if ($database) {
+		$source = '';
+		foreach ($recent_pages as $_page => $time) {
+			$line = get_recentchanges_line($_page, $time, $do_diff);
+			$source .= $line;
+		}
+		$source .= '#norelated' . "\n";
+		db_write(DATA_DB, 'content', $source, 'page_name', $whatsnew);
+	} else {
+		$file = get_filename($whatsnew);
+		pkwk_touch_file($file);
+		$fp = fopen($file, 'r+') or
+			die_message('Cannot open ' . htmlsc($whatsnew));
+		set_file_buffer($fp, 0);
+		flock($fp, LOCK_EX);
+		ftruncate($fp, 0);
+		rewind($fp);
+		foreach (array_keys($recent_pages) as $page) {
+			$time = $recent_pages[$page];
+			$line = get_recentchanges_line($page, $time, $do_diff);
+			fputs($fp, $line);
+		}
+		fputs($fp, '#norelated' . "\n"); // :)
+		flock($fp, LOCK_UN);
+		fclose($fp);
 
-	// For AutoLink
-	if ($autolink) {
-		autolink_pattern_write(CACHE_DIR . PKWK_AUTOLINK_REGEX_CACHE,
-			get_autolink_pattern($pages, $autolink));
+		// For AutoLink
+		if ($autolink) {
+			autolink_pattern_write(CACHE_DIR . PKWK_AUTOLINK_REGEX_CACHE,
+				get_autolink_pattern($pages, $autolink));
+		}
 	}
 }
 

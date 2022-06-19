@@ -86,7 +86,7 @@ function make_backup($page, $is_delete, $wikitext)
 			$body_on_delete = preg_replace("/\n*$/", "\n", $body_on_delete);
 		}
 		if ($database) {
-			db_write(BACKUP_DB, $page, $strout . $body . $body_on_delete);
+			db_page_write(BACKUP_DB, $page, $strout . $body . $body_on_delete);
 			return;
 		}
 		$fp = _backup_fopen($page, 'wb')
@@ -115,7 +115,7 @@ function make_backup($page, $is_delete, $wikitext)
 function get_backup($page, $age = 0)
 {
 	global $database;
-	if ($database && exist_db_record(BACKUP_DB, $page)) {
+	if ($database && exist_db_page(BACKUP_DB, $page)) {
 		$r = db_read(BACKUP_DB, "content", "page_name", $page)['content'];
 		preg_match_all("/.*?(?:$|\n).*?/", $r, $lines);
 		$lines = $lines[0];
@@ -178,7 +178,7 @@ function _backup_get_filename($page)
 function _backup_file_exists($page)
 {
 	global $database;
-	if ($database && exist_db_record(BACKUP_DB, $page))
+	if ($database && exist_db_page(BACKUP_DB, $page))
 		return true;
 	return file_exists(_backup_get_filename($page));
 }
@@ -196,7 +196,7 @@ function _backup_file_exists($page)
 function _backup_get_filetime($page)
 {
 	global $database;
-	if ($database && exist_db_record(BACKUP_DB, $page)) {
+	if ($database && exist_db_page(BACKUP_DB, $page)) {
 		return _backup_file_exists($page) ?
 			db_recordmtime($page, BACKUP_DB) - LOCALZONE : 0;
 	}
@@ -216,7 +216,7 @@ function _backup_get_filetime($page)
 function _backup_delete($page)
 {
 	global $database;
-	if ($database && exist_db_record(BACKUP_DB, $page)) {
+	if ($database && exist_db_page(BACKUP_DB, $page)) {
 		db_delete(BACKUP_DB, $page);
 	}
 	return unlink(_backup_get_filename($page));

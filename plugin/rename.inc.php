@@ -225,7 +225,7 @@ function plugin_rename_phase3($pages)
 		// 既に存在する変更後のページ名を取得
 		foreach ($records as $table=>$arr) {
 			foreach ($arr as $old => $new) {
-				if (exist_db_record($table, $new))
+				if (exist_db_page($table, $new))
 					$exist_records[$table][$old] = $new;
 			}
 		}
@@ -514,10 +514,10 @@ function plugin_rename_is_page($page) {
 	}
 	if ($database) {
 		// DataBase
-		if (exist_db_record(DIFF_DB, $page)) {
+		if (exist_db_page(DIFF_DB, $page)) {
 			true;
 		}
-		if (exist_db_record(BACKUP_DB, $page)) {
+		if (exist_db_page(BACKUP_DB, $page)) {
 			true;
 		}
 	}

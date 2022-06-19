@@ -147,7 +147,7 @@ function is_page($page, $clearcache = FALSE)
 {
 	global $database;
 	if ($clearcache) clearstatcache();
-	if ($database && exist_db_record(DATA_DB, $page)) {
+	if ($database && exist_db_page(DATA_DB, $page)) {
 		return true;
 	}
 	return file_exists(get_filename($page));
@@ -170,7 +170,7 @@ function page_exists_in_history($page)
 	if (is_page($page)) {
 		return true;
 	}
-	if ($database && exist_db_record(DIFF_DB, $page)) {
+	if ($database && exist_db_page(DIFF_DB, $page)) {
 		return true;
 	}
 	$diff_file = DIFF_DIR . encode($page) . '.txt';
@@ -213,7 +213,7 @@ function is_freeze($page, $clearcache = FALSE)
 		$is_freeze[$page] = FALSE;
 		return FALSE;
 	} else {
-		if ($database && exist_db_record(DATA_DB, $page)) {
+		if ($database && exist_db_page(DATA_DB, $page)) {
 			$r = db_read(DATA_DB, "content", "page_name", $page);
 			$is_freeze[$page] = (bool) preg_match('/^#freeze$/m', $r['content']);
 			return $is_freeze[$page];

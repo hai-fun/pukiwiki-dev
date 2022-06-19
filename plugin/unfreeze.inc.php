@@ -38,8 +38,8 @@ function plugin_unfreeze_action()
 			}
 		}
 		$postdata = join('', $postdata);
-		if ($database && exist_db_record(DATA_DB, $page)) {
-			db_write(DATA_DB, $page, $postdata, TRUE);
+		if ($database && exist_db_page(DATA_DB, $page)) {
+			db_page_write(DATA_DB, $page, $postdata, TRUE);
 		} else {
 			file_write(DATA_DIR, $page, $postdata, TRUE);
 		}

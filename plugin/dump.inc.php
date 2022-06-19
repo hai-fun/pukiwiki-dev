@@ -207,7 +207,7 @@ function plugin_dump_upload()
 	if ($database) {
 		foreach ($files as $file) {
 			$page = decode(pathinfo(basename($file), PATHINFO_FILENAME));
-			db_write(dir2db(dirname($file) . '/'), $page, file_get_contents($file));
+			db_page_write(dir2db(dirname($file) . '/'), $page, file_get_contents($file));
 			unlink($file);
 		}
 	}

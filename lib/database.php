@@ -59,12 +59,12 @@ content TEXT
  * Get record
  *
  * @param $table table name
- * @param $select Column name to get
+ * @param $column Column name to get
  * @param $where Search target column name 
  * @param $target Target column value
  * @return FALSE if error occurerd
  */
-function db_read($table, $select, $where, $target)
+function db_read($table, $column, $where, $target)
 {
     try {
         global $database_dsn, $database_username, $database_password, $database_options, $database_timeout;
@@ -72,8 +72,53 @@ function db_read($table, $select, $where, $target)
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_TIMEOUT, $database_timeout);
-        $stmt = $pdo->prepare("SELECT " . $select . " FROM " . $table . " WHERE " . $where . "=?");
+        $stmt = $pdo->prepare("SELECT " . $column . " FROM " . $table . " WHERE " . $where . "=?");
         $stmt->execute(array($target));
+        $r = $stmt->fetch();
+        return $r;
+    } catch (PDOException $e) {
+        return FALSE;
+    }
+}
+
+/**
+ * Set record
+ *
+ * @param $table table name
+ * @param $column Column name to set
+ * @param $value Value to write
+ * @param $where Search target column name 
+ * @param $target Target column value
+ * @param $mode h: head / f: foot / w: rewrite
+ * @return FALSE if error occurerd
+ */
+function db_write($table, $column, $value, $where, $target, $mode = 'w')
+{
+    try {
+        global $database_dsn, $database_username, $database_password, $database_options;
+        $pdo = new PDO($database_dsn, $database_username, $database_password, $database_options);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        if (!exist_db_record($table, $where, $target)) {
+            $stmt = $pdo->prepare("INSERT INTO " . $table . " (" . $where . ", " . $column . ") VALUES(?, ?)");
+            $stmt->execute(array($target, $value));
+            $r = $stmt->fetch();
+            return $r;
+        }
+        $stmt = $pdo->prepare("UPDATE " . $table . " SET " . $column . "=? WHERE " . $where . "=?");
+        if ($mode === 'w') {
+            $stmt->execute(array($value, $target));
+        } else
+        if ($mode === 'h') {
+            $record = db_read($table, $column, $where, $target);
+            $stmt->execute(array($value . $record['content'], $target));
+        } else
+        if ($mode === 'f') {
+            $record = db_read($table, $column, $where, $target);
+            $stmt->execute(array($record['content'] . $value, $target));
+        } else {
+            die_message("database.php: the mode is wrong");
+        }
         $r = $stmt->fetch();
         return $r;
     } catch (PDOException $e) {
@@ -120,15 +165,15 @@ function db_delete($table, $page)
 /**
  * Write to database
  */
-function db_write($table, $page, $str, $notimestamp = FALSE, $is_delete = FALSE)
+function db_page_write($table, $page, $str, $notimestamp = FALSE, $is_delete = FALSE)
 {
-    global $database_dsn, $database_username, $database_password, $database_options, $database_timeout;
+    global $database_dsn, $database_username, $database_password, $database_options;
     global $whatsdeleted, $maxshow_deleted, $notify, $notify_diff_only, $notify_subject;
 
     // Delete
     if ($table == DATA_DB && $is_delete) {
         // check
-        if (!exist_db_record($table, $page)) {
+        if (!exist_db_page($table, $page)) {
             return;
         }
 
@@ -147,7 +192,7 @@ function db_write($table, $page, $str, $notimestamp = FALSE, $is_delete = FALSE)
 
     // check
     $file_exists = false;
-    if (exist_db_record($table, $page)) {
+    if (exist_db_page($table, $page)) {
         $file_exists = true;
     }
 
@@ -182,7 +227,7 @@ WHERE page_name = ?
     } catch (Expection $e) {
         die_message('database.php: Error occurred');
     }
-    
+
     // Optional actions
     if ($table == DATA_DB) {
         if ($timestamp === false) {
@@ -212,7 +257,7 @@ WHERE page_name = ?
 
 function get_db_recordtime($page, $table = DATA_DB)
 {
-    if (exist_db_record($table, $page)) {
+    if (exist_db_page($table, $page)) {
         return db_recordmtime($page, $table) - LOCALZONE;
     }
     return 0;
@@ -220,7 +265,7 @@ function get_db_recordtime($page, $table = DATA_DB)
 
 function db_recordmtime($page, $table = DATA_DB)
 {
-    if (exist_db_record($table, $page)) {
+    if (exist_db_page($table, $page)) {
         $date = db_read($table, "date", "page_name", $page)['date'];
         return strtotime($date);
     }
@@ -241,9 +286,14 @@ function exist_db_table($name)
     }
 }
 
-function exist_db_record($table, $page)
+function exist_db_page($table, $page)
 {
-    if (db_read($table, "page_name", "page_name", $page) === false) {
+    return exist_db_record($table, "page_name", $page);
+}
+
+function exist_db_record($table, $column, $value)
+{
+    if (db_read($table, $column, $column, $value) === false) {
         return false;
     }
     return true;

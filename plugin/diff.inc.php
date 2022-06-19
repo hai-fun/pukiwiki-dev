@@ -52,7 +52,7 @@ function plugin_diff_view($page)
 	}
 
 	$filename = DIFF_DIR . encode($page) . '.txt';
-	if ($database && exist_db_record(DIFF_DB, $page)) {
+	if ($database && exist_db_page(DIFF_DB, $page)) {
 		if (!PKWK_READONLY) {
 			$menu[] = '<li><a href="' . $script . '?cmd=diff&amp;action=delete&amp;page=' .
 				$r_page . '">' . str_replace('$1', $s_page, $_title_diff_delete) . '</a></li>';
